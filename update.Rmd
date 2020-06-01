@@ -1376,7 +1376,7 @@ Studies that only recruited those aged 65+ vs those that recruited other ages to
            n_studies = table(df$setting))  %>%
     rename(ADR_proportion = pred) %>%
     select(cat, n_studies, everything()) %>%
-    flextable()
+    flextable() 
 
 ```
 
@@ -1576,7 +1576,7 @@ Binomial-normal random effects model (coefficients on the log-odds scale).
 
   res_glmm_sev
   
-  predict(res_glmm_sev, transf = transf.ilogit)
+  predict(res_glmm_sev, transf = transf.ilogit) 
 
 
 ```
@@ -1650,7 +1650,8 @@ Binomial-normal random effects model (coefficients on the log-odds scale).
            moderator_p = c(NA, round(sev_age$QMp, 3)),
            n_studies = table(severity$all_ages_vs_65_only))  %>%
     rename(Severity_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable() 
   
 ```
 
@@ -1677,7 +1678,8 @@ Binomial-normal random effects model (coefficients on the log-odds scale).
              ),
            n_studies = table(severity$severity_tool))  %>%
     rename(Severity_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable() 
   
 ```
 
@@ -1717,7 +1719,7 @@ Binomial-normal random effects model (coefficients on the log-odds scale).
 
   res_glmm_prev
   
-  predict(res_glmm_prev, transf = transf.ilogit)
+  predict(res_glmm_prev, transf = transf.ilogit) 
 
 
 ```
@@ -1791,7 +1793,8 @@ Binomial-normal random effects model (coefficients on the log-odds scale).
            moderator_p = c(NA, round(prev_age$QMp, 3)),
            n_studies = table(prevent$all_ages_vs_65_only))  %>%
     rename(Preventability_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable() 
   
 ```
 
