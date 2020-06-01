@@ -365,7 +365,8 @@ Studies that only recruited those aged 65+ vs those that recruited other ages to
            moderator_p = c(NA, round(model$QMp, 3)),
            n_studies = table(df$all_ages_vs_65_only)) %>%
     rename(ADR_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable()
   
 ```
 
@@ -490,7 +491,8 @@ Studies that only recruited those aged 65+ vs those that recruited other ages to
                            round(model$QMp, 3)),
            n_studies = table(df$adr_def))  %>%
     rename(ADR_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable()
   
 ```
 
@@ -650,9 +652,11 @@ Studies that only recruited those aged 65+ vs those that recruited other ages to
                            round(model$QMp, 3)),
            n_studies = table(df$causality))  %>%
     rename(ADR_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable()
   
 ```
+
 ```{r setting_causality_models}
 
   res_whoumc <- rma.glmm(
@@ -808,9 +812,11 @@ Studies that only recruited those aged 65+ vs those that recruited other ages to
                            round(model$QMp, 3)),
            n_studies = table(df$overlap_methods))  %>%
     rename(ADR_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable()
   
 ```
+
 ```{r overlapping_subgroup_models}
 
   res_whowho <- rma.glmm(
@@ -956,7 +962,8 @@ Studies that only recruited those aged 65+ vs those that recruited other ages to
                            round(model$QMp, 3)),
            n_studies = table(df$adr_id_method))  %>%
     rename(ADR_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable()
   
 ```
 
@@ -1105,7 +1112,8 @@ Studies that only recruited those aged 65+ vs those that recruited other ages to
                            round(model$QMp, 3)),
            n_studies = table(df$quality))  %>%
     rename(ADR_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable()
   
 ```
 
@@ -1235,7 +1243,8 @@ Studies that only recruited those aged 65+ vs those that recruited other ages to
                            round(model$QMp, 3)),
            n_studies = table(df$incident))  %>%
     rename(ADR_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable()
   
 ```
 
@@ -1366,7 +1375,8 @@ Studies that only recruited those aged 65+ vs those that recruited other ages to
                            round(res_setting$QMp, 3)),
            n_studies = table(df$setting))  %>%
     rename(ADR_proportion = pred) %>%
-    select(cat, n_studies, everything())
+    select(cat, n_studies, everything()) %>%
+    flextable()
 
 ```
 
