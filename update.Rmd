@@ -1,0 +1,1817 @@
+---
+title: ''
+author: ''
+date: ''
+output: 
+  html_document:
+    df_print: paged
+    keep_md: true
+  word_document:
+    reference_docx: style.1.docx
+---
+
+```{r setup, include = FALSE}
+
+  knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, 
+                        fig.width  = 6 * 1.67, fig.height = 6)
+
+  load("data/data.RData")
+  
+  library(tidyverse)
+  library(metafor)
+  library(viridis)
+  library(flextable)
+
+```
+
+
+# Queries
+
+The reviewers also had some requests regarding further analyses they would like included (see below for details), and some questions that I need to seek your clarification on:
+
+**1.	"what software and version was used to conduct themeta-analysis?" - I presume this was R but am aware I never actually asked.**
+
+2.	"is it not customary to conduct analyses to take out one study at a time to identify if any one study was highly influential? please provide this information" - was this the case with the prior analysis, and if so what impact / if any was there? If not, can we do this?
+
+**3.	"it would be helpful to see a funnel plot and eggers test to examine publication bias" - I am unsure how to run/conduct same, could you assist here (please let me know if you require further information).**
+
+**4.	"It would be most helpful to see forest plots for severity and preventability using random effects model"**
+
+**5.	Questioning regarding impact  of hospital setting on ADR proportions**
+
+I have attached a new Excel file for your attention. Each tab contains the data for each analysis.
+
+**1.	Overall pooled ADR proportions for all included studies**
+
+**2.	Subgroup analysis for studies where all participants were >65years - forest plot for this group and query any statistical significance between this group and overall pooled proportion (analysis #1).**
+
+**3.	Subgroup analysis for grouped ADR definitions - forest plot for each grouping and query and staistical significance between each group and overall pooled proportion(analysis #1).**
+
+**4.	Subgroup analysis for grouped ADR causality tools - forest plot for each grouping and query and staistical significance between each group and overall pooled proportion (analysis #1).**
+
+**5.	Subgroup analysis grouped by overlapping ADR methodology - forest plot for each grouping and query and staistical significance between each group and overall pooled proportion (analysis #1).**
+
+**6.	New subgroup analysis -  grouped by ADR identification method - forest plot for each grouping and query any statistical significance between each group and overall pooled proportion (analysis #1).**
+
+**7.	New subgroup analysis - pooled proportions for ADR preventability based on studies reporting preventability**
+
+**8.	New subgroup analysis - pooled proportions for ADR severity based on studies reporting severity** 
+
+**9.	New subgroup analysis - based on reviewer comment querying impact on risk of bias - forest plot for high quality studies and query any statistical significance between each group and overall pooled proportion (analysis #1).**
+
+**10.	New subgroup analysis - based on reviewer comment querying impact of NOS domain "demonstration that outcome of interest was not present at start of study" - forest plots for groupings that did and did not demonstarte this and query any statistical significance between each grouping and overall pooled proportion (analysis #1).**
+
+**11.	New subgroup analysis - based on reviewer comment querying impact of ward setting on ADR proportions - forest plots for each ward grouping and query any statistical significance between each grouping and overall pooled proportion (analysis #1).** 
+
+
+
+# ADRs
+
+## Overall model
+
+```{r, effect_size_calculation}
+
+# Get effect sizes and variances for each sample
+  data <- escalc(measure = "PR", xi = adr_n_65, ni = total_n_65, data = data)
+
+# qplot(pct_adr_65, yi, data = data) # ok#
+
+# Get binomial 95% CI for each sample
+  tmp <- t(sapply(split(data, data$id),
+                  function(x) binom.test(x$adr_n_65, x$total_n_65)$conf.int))
+  data$ci.lb <- tmp[, 1]
+  data$ci.ub <- tmp[, 2]
+  
+```
+
+*1. "what software and version was used to conduct themeta-analysis?" - I presume this was R but am aware I never actually asked.*
+
+All analysis were conducted using the R Language for Statistical Programming (REF1).  
+
+REF1: R Core Team (2020). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+
+Meta-analysis models and plots were produced using the metafor package (REF2).
+
+REF2: Viechtbauer, W. (2010). Conducting meta-analyses in R with the metafor package. Journal of Statistical Software, 36(3), 1-48. URL: https://www.jstatsoft.org/v36/i03/
+
+For meta-analysis models we used a generalized linear mixed effects model for logit transformed proportions (i.e. metafor::rms.glmm(measure = "PLO")). 
+
+*1.	Overall pooled ADR proportions for all included studies except Liao*
+
+Binomial-normal random effects model (coefficients on the log-odds scale). 
+```{r}
+
+# RE model for logit xformed proportion
+  res_glmm <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, data = data
+    )
+
+  res_glmm
+
+```
+
+Results on the probability scale. This is the mean ADR proportion, the 95% CI of that estimate, and a 95% prediction interval (the very wide interval)
+
+```{r}
+
+  predict(res_glmm, transf = transf.ilogit)
+
+```
+
+
+Figure 1. 
+
+```{r fig_1}
+
+### decrease margins so the full space is used
+  par(mar = c(4, 4, 1, 2))
+
+# pdf("plots/update/overall_forest.pdf")
+
+  txt1 <- paste0(
+      "QE(LRT) = ", round(res_glmm$QE.LRT, 2),
+      ", df = ", (res_glmm$k - res_glmm$p),
+      ifelse(
+        res_glmm$QEp.LRT < 0.001, ", p < 0.001", round(res_glmm$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(res_glmm$I2, digits = 1),
+    "%; tau^2 = ", round(res_glmm$tau2, digits = 2)
+  )
+
+  forest(
+    res_glmm,
+    addcred = TRUE,
+    xlim = c(-1, 1.2),
+    # at = log(c(0.05, 0.25, 1, 4)),
+    transf = transf.ilogit,
+    # atransf = transf.ilogit,
+    ilab = cbind(data$total_n_65, data$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75,
+    ylim = c(-3, 29),
+    order = order(data$year),
+    # rows = c(3:4, 9:15, 20:23),
+    xlab = "Proportion",
+    mlab = "",
+   # psize = 2,
+    header = "Author and Year",
+    slab = data$study,
+    refline = predict(res_glmm, transf = transf.ilogit)$pred
+    ) 
+
+  text(c(-0.3, -0.1), 28, c("Total n", "ADR n"), cex = 0.75) 
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+
+```
+
+```{r fig_1_pdf, include = FALSE}
+
+  pdf("plots/update/overall_forest.pdf")
+
+  forest(
+    res_glmm,
+    addcred = TRUE,
+    xlim = c(-1, 1.2),
+    # at = log(c(0.05, 0.25, 1, 4)),
+    transf = transf.ilogit,
+    # atransf = transf.ilogit,
+    ilab = cbind(data$total_n_65, data$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75,
+    ylim = c(-3, 29),
+    order = order(data$year),
+    # rows = c(3:4, 9:15, 20:23),
+    xlab = "Proportion",
+    mlab = "",
+   # psize = 2,
+    header = "Author and Year",
+    slab = data$study,
+    refline = predict(res_glmm, transf = transf.ilogit)$pred
+    ) 
+
+  text(c(-0.3, -0.1), 28, c("Total n", "ADR n"), cex = 0.75) 
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+  
+  dev.off()
+
+```
+
+Binomial-normal random effects model, with Liao (coefficients on the log-odds scale). 
+```{r}
+
+# RE model for logit xformed proportion
+  res_glmm_liao <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, data = data_liao
+    )
+
+  res_glmm_liao
+  
+  predict(res_glmm_liao, transf = transf.ilogit)
+
+
+```
+
+```{r fig_2}
+
+### decrease margins so the full space is used
+  par(mar = c(4, 4, 1, 2))
+
+# pdf("plots/update/overall_forest.pdf")
+
+  txt1 <- paste0(
+      "QE(LRT) = ", round(res_glmm_liao$QE.LRT, 2),
+      ", df = ", (res_glmm_liao$k - res_glmm_liao$p),
+      ifelse(
+        res_glmm_liao$QEp.LRT < 0.001, 
+        ", p < 0.001", 
+        round(res_glmm_liao$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(res_glmm_liao$I2, digits = 1),
+    "%; tau^2 = ", round(res_glmm_liao$tau2, digits = 2)
+  )
+
+  forest(
+    res_glmm_liao,
+    addcred = TRUE,
+    xlim = c(-1, 1.2),
+    # at = log(c(0.05, 0.25, 1, 4)),
+    transf = transf.ilogit,
+    # atransf = transf.ilogit,
+    ilab = cbind(data_liao$total_n_65, data_liao$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75,
+    ylim = c(-3, 30),
+    order = order(data_liao$year),
+    # rows = c(3:4, 9:15, 20:23),
+    xlab = "Proportion",
+    mlab = "",
+   # psize = 2,
+    header = "Author and Year",
+    slab = data_liao$study,
+    refline = predict(res_glmm_liao, transf = transf.ilogit)$pred
+    ) 
+
+  text(c(-0.3, -0.1), 29, c("Total n", "ADR n"), cex = 0.75) 
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+
+```
+
+
+
+
+Binomial-normal fixed effects model, with Liao (coefficients on the log-odds scale). 
+```{r}
+
+# RE model for logit xformed proportion
+  fes_glmm_liao <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, method = "FE", 
+    data = data_liao 
+    )
+
+  fes_glmm_liao
+  
+  predict(fes_glmm_liao, transf = transf.ilogit)
+
+  
+```
+
+## Funnel plot
+
+*3.	"it would be helpful to see a funnel plot and eggers test to examine publication bias" - I am unsure how to run/conduct same, could you assist here (please let me know if you require further information).*
+
+### Without Liao
+```{r}
+
+  funnel(res_glmm)
+
+```
+
+### With Liao
+
+```{r}
+
+  funnel(res_glmm_liao)
+
+```
+
+## Influence
+
+```{r}
+
+ res <- rma(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, data = data
+    )
+
+# calculate influence diagnostics
+  inf <- influence(res)
+ 
+# plot the influence diagnostics
+  plot(inf)
+  
+```
+4 = `r data$study[4]`
+12 = `r data$study[12]`
+23 = `r data$study[23]`
+
+```{r}
+
+  leave1out(res, transf = transf.ilogit, digits = 3)
+
+```
+
+
+## Moderators
+
+### Age
+
+*2. Subgroup analysis for studies where all participants were >65years - forest plot for this group and query any statistical significance between this group and overall pooled proportion (analysis #1).*
+
+Studies that only recruited those aged 65+ vs those that recruited other ages too. 
+```{r}
+
+  data_age <- filter(data, !is.na(all_ages_vs_65_only)) %>%
+  arrange(all_ages_vs_65_only)
+
+  res_age <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, data = data_age, 
+    mods = ~ all_ages_vs_65_only
+    )
+  
+  df <- data_age
+  model <- res_age
+  model2 <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df
+    ) # No moderator, but in the dataset with no missing moderators
+
+
+  predict(model, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(df$all_ages_vs_65_only), 
+           moderator_p = c(NA, round(model$QMp, 3)),
+           n_studies = table(df$all_ages_vs_65_only)) %>%
+    rename(ADR_proportion = pred) %>%
+    select(cat, n_studies, everything())
+  
+```
+
+```{r age_subgroup_models}
+
+  res_age_all <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, data = data,
+    subset = (all_ages_vs_65_only == levels(df$all_ages_vs_65_only)[1])
+  )
+
+  res_age_65 <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, data = data,
+    subset = (all_ages_vs_65_only == levels(df$all_ages_vs_65_only)[2])
+  )
+
+
+```
+
+```{r forest_sub_age}
+
+  n_groups <- length(table(df$all_ages_vs_65_only))
+  n_g_1 <- table(df$all_ages_vs_65_only)[1]
+  n_g_2 <- table(df$all_ages_vs_65_only)[2]
+  total_n <- sum(table(df$all_ages_vs_65_only))
+  
+  upper <- total_n + 3 + (2 * n_groups)
+  
+  g_1_start <- 1 + 1 # one for poly
+  g_1_end <- g_1_start + n_g_1 - 1
+  
+  g_2_start <- g_1_end + 1 + 1 + 1 # g2 label, space, poly
+  g_2_end <- g_2_start + n_g_2 - 1
+  
+
+# Overall fit from the model with no missing moderators
+  txt1 <- paste0(
+      "QE(LRT) = ", round(model2$QE.LRT, 2),
+      ", df = ", (model2$k - model2$p),
+      ifelse(
+        model2$QEp.LRT < 0.001, ", p < 0.001", round(model2$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(model2$I2, digits = 1),
+    "%; tau^2 = ", round(model2$tau2, digits = 2)
+  )
+  
+  par(mar=c(4,4,1,2))
+  
+  forest(
+    model2,
+    addcred = TRUE, 
+    addfit = TRUE,
+    xlab = "Proportion",
+    mlab = "",
+    header = "Author and Year",
+    slab = df$study,
+    transf = transf.ilogit,
+    order = order(df$all_ages_vs_65_only),
+    refline = predict(model2, transf = transf.ilogit)$pred, 
+    ylim = c(-3, upper), 
+    # 0 is the bottom. -3 gives space below that. + 3 to align top labels. 
+    # + 2 more for each group (poly below and label above). 
+    xlim = c(-1, 1.2), # Tweak to look right
+    ilab = cbind(df$total_n_65, df$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75, 
+    rows = c(g_1_start:g_1_end, g_2_start:g_2_end)
+
+  )
+  
+# text(x = -0.5, y = -3:upper, cex = 0.75, as.character(-3:upper))
+
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+  
+  text(c(-0.3, -0.1), upper - 1, c("Total n", "ADR n"), 
+       cex = 0.75) # One less than the total
+  
+  text(-1, c(g_2_end + 1, g_1_end + 1), 
+       pos = 4, font = 2, cex = 0.75,
+       rev(levels(df$all_ages_vs_65_only)))
+  
+  addpoly(res_age_all,  row = g_1_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_age_65,   row = g_2_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+
+```
+
+
+
+### ADR definition
+
+*3.	Subgroup analysis for grouped ADR definitions - forest plot for each grouping and query and staistical significance between each group and overall pooled proportion(analysis #1).*
+
+```{r}
+
+  data_adr <- filter(data, !is.na(adr_def)) %>%
+  arrange(adr_def)
+
+  res_adr <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = arrange(data, adr_def), 
+    mods = ~ adr_def
+    )
+  
+  df <- data_adr
+  model <- res_adr
+  model2 <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df
+    ) # No moderator, but in the dataset with no missing moderators
+
+
+  predict(model, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(df$adr_def), 
+           moderator_p = c(rep(NA, length(levels(df$adr_def)) -1), 
+                           round(model$QMp, 3)),
+           n_studies = table(df$adr_def))  %>%
+    rename(ADR_proportion = pred) %>%
+    select(cat, n_studies, everything())
+  
+```
+
+```{r adr_models}
+
+  res_who <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (adr_def == levels(df$adr_def)[1])
+  )
+
+  res_nd <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (adr_def == levels(df$adr_def)[2])
+  )
+  
+  res_edar <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (adr_def == levels(df$adr_def)[4])
+  )
+      
+  res_ad <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65,
+    data = df,
+    subset = (adr_def == levels(df$adr_def)[6])
+  )
+  
+
+
+```
+
+```{r forest_sub_adr}
+
+  n_groups <- length(table(df$adr_def))
+  n_g_1 <- table(df$adr_def)[1]
+  n_g_2 <- table(df$adr_def)[2]
+  n_g_3 <- table(df$adr_def)[3]
+  n_g_4 <- table(df$adr_def)[4]
+  n_g_5 <- table(df$adr_def)[5]
+  n_g_6 <- table(df$adr_def)[6]
+  total_n <- sum(table(df$setting))
+  
+  upper <- total_n + 3 + (2 * n_groups)
+  
+  g_1_start <- 1 + 1 # one for poly
+  g_1_end <- g_1_start + n_g_1 - 1
+  
+  g_2_start <- g_1_end + 1 + 1 + 1 # g2 label, space, poly
+  g_2_end <- g_2_start + n_g_2 - 1
+  
+  g_3_start <- g_2_end + 1 + 1 + 1 # g2 label, space, poly
+  g_3_end <- g_3_start + n_g_3 - 1
+  
+  g_4_start <- g_3_end + 1 + 1 + 1 # g2 label, space, poly
+  g_4_end <- g_4_start + n_g_4 - 1
+  
+  g_5_start <- g_4_end + 1 + 1 + 1 # g2 label, space, poly
+  g_5_end <- g_5_start + n_g_5 - 1
+  
+  g_6_start <- g_5_end + 1 + 1 + 1 # g2 label, space, poly
+  g_6_end <- g_6_start + n_g_6 - 1
+  
+
+# Overall fit from the model with no missing moderators
+  txt1 <- paste0(
+      "QE(LRT) = ", round(model2$QE.LRT, 2),
+      ", df = ", (model2$k - model2$p),
+      ifelse(
+        model2$QEp.LRT < 0.001, ", p < 0.001", round(model2$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(model2$I2, digits = 1),
+    "%; tau^2 = ", round(model2$tau2, digits = 2)
+  )
+  
+  par(mar=c(4,4,1,2))
+  
+  forest(
+    model2,
+    addcred = TRUE, 
+    addfit = TRUE,
+    xlab = "Proportion",
+    mlab = "",
+    header = "Author and Year",
+    slab = df$study,
+    transf = transf.ilogit,
+    order = order(df$adr_def),
+    refline = predict(model2, transf = transf.ilogit)$pred, 
+    ylim = c(-3, upper), 
+    # 0 is the bottom. -3 gives space below that. + 3 to align top labels. 
+    # + 2 more for each group (poly below and label above). 
+    xlim = c(-1, 1.2), # Tweak to look right
+    ilab = cbind(df$total_n_65, df$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75, 
+    rows = c(g_1_start:g_1_end, g_2_start:g_2_end, g_3_start:g_3_end, 
+             g_4_start:g_4_end, g_5_start:g_5_end, g_6_start:g_6_end)
+
+  )
+  
+# text(x = -0.5, y = -3:upper, cex = 0.75, as.character(-3:upper))
+
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+  
+  text(c(-0.3, -0.1), upper - 1, c("Total n", "ADR n"), 
+       cex = 0.75) # One less than the total
+  
+  text(-1, c(g_6_end + 1, g_5_end + 1, g_4_end + 1, g_3_end + 1,
+             g_2_end + 1, g_1_end + 1), 
+       pos = 4, font = 2, cex = 0.75,
+       rev(levels(df$adr_def)))
+  
+  addpoly(res_who,  row = g_1_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_nd,   row = g_2_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+# no model
+  addpoly(res_edar, row = g_4_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+# no model
+  addpoly(res_ad,   row = g_6_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+
+```
+
+### Causality
+
+*4.	Subgroup analysis for grouped ADR causality tools - forest plot for each grouping and query and staistical significance between each group and overall pooled proportion (analysis #1).*
+
+```{r}
+
+  data_cause <- filter(data, !is.na(causality)) %>%
+  arrange(causality)
+
+  res_cause <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = data_cause, 
+    mods = ~ causality
+    )
+  
+  df <- data_cause
+  model <- res_cause
+  model2 <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df
+    ) # No moderator, but in the dataset with no missing moderators
+
+
+  predict(model, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(df$causality), 
+           moderator_p = c(rep(NA, length(levels(df$causality)) -1), 
+                           round(model$QMp, 3)),
+           n_studies = table(df$causality))  %>%
+    rename(ADR_proportion = pred) %>%
+    select(cat, n_studies, everything())
+  
+```
+```{r setting_causality_models}
+
+  res_whoumc <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (causality == levels(df$causality)[1])
+  )
+
+  res_nd <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (causality == levels(df$causality)[2])
+  )
+  
+  res_nar <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (causality == levels(df$causality)[3])
+  )
+      
+  # res_kramer <- rma.glmm(
+  #   measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+  #   data = df,
+  #   subset = (causality == levels(df$causality)[4])
+  # )
+  
+  #   res_hallas <- rma.glmm(
+  #   measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+  #   data = df,
+  #   subset = (causality == levels(df$causality)[5])
+  # )
+
+```
+
+```{r forest_sub_causality}
+
+  n_groups <- length(table(df$causality))
+  n_g_1 <- table(df$causality)[1]
+  n_g_2 <- table(df$causality)[2]
+  n_g_3 <- table(df$causality)[3]
+  n_g_4 <- table(df$causality)[4]
+  n_g_5 <- table(df$causality)[5]
+  total_n <- sum(table(df$causality))
+  
+  upper <- total_n + 3 + (2 * n_groups)
+  
+  g_1_start <- 1 + 1 # one for poly
+  g_1_end <- g_1_start + n_g_1 - 1
+  
+  g_2_start <- g_1_end + 1 + 1 + 1 # g2 label, space, poly
+  g_2_end <- g_2_start + n_g_2 - 1
+  
+  g_3_start <- g_2_end + 1 + 1 + 1 # g2 label, space, poly
+  g_3_end <- g_3_start + n_g_3 - 1
+  
+  g_4_start <- g_3_end + 1 + 1 + 1 # g2 label, space, poly
+  g_4_end <- g_4_start + n_g_4 - 1
+  
+  g_5_start <- g_4_end + 1 + 1 + 1 # g2 label, space, poly
+  g_5_end <- g_5_start + n_g_5 - 1
+
+  
+# Overall fit from the model with no missing moderators
+  txt1 <- paste0(
+      "QE(LRT) = ", round(model2$QE.LRT, 2),
+      ", df = ", (model2$k - model2$p),
+      ifelse(
+        model2$QEp.LRT < 0.001, ", p < 0.001", round(model2$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(model2$I2, digits = 1),
+    "%; tau^2 = ", round(model2$tau2, digits = 2)
+  )
+  
+  par(mar=c(4,4,1,2))
+  
+  forest(
+    model2,
+    addcred = TRUE, 
+    addfit = TRUE,
+    xlab = "Proportion",
+    mlab = "",
+    header = "Author and Year",
+    slab = df$study,
+    transf = transf.ilogit,
+    order = order(df$causality),
+    refline = predict(model2, transf = transf.ilogit)$pred, 
+    ylim = c(-3, upper), 
+    # 0 is the bottom. -3 gives space below that. + 3 to align top labels. 
+    # + 2 more for each group (poly below and label above). 
+    xlim = c(-1, 1.2), # Tweak to look right
+    ilab = cbind(df$total_n_65, df$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75, 
+    rows = c(g_1_start:g_1_end, g_2_start:g_2_end, g_3_start:g_3_end, 
+             g_4_start:g_4_end, g_5_start:g_5_end)
+
+  )
+  
+# text(x = -0.5, y = -3:upper, cex = 0.75, as.character(-3:upper))
+
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+  
+  text(c(-0.3, -0.1), upper - 1, c("Total n", "ADR n"), 
+       cex = 0.75) # One less than the total
+  
+  text(-1, c(g_5_end + 1, g_4_end + 1, g_3_end + 1, g_2_end + 1, g_1_end + 1), 
+       pos = 4, font = 2, cex = 0.75,
+       rev(levels(df$causality)))
+  
+  addpoly(res_whoumc,  row = g_1_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_nd, row = g_2_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_nar,   row = g_3_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "") 
+  
+
+```
+
+
+### Overlapping methods
+
+*5.	Subgroup analysis grouped by overlapping ADR methodology - forest plot for each grouping and query and staistical significance between each group and overall pooled proportion (analysis #1).*
+
+```{r}
+
+  data_overlap <- filter(data, !is.na(overlap_methods)) %>%
+  arrange(overlap_methods)
+# Remove those with missing mod values
+
+
+  res_overlap <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = data_overlap, 
+    mods = ~ overlap_methods
+    )
+  
+  df <- data_overlap
+  model <- res_overlap
+  model2 <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df
+    ) # No moderator, but in the dataset with no missing moderators
+
+  predict(model, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(df$overlap_methods), 
+           moderator_p = c(rep(NA, length(levels(df$overlap_methods)) -1), 
+                           round(model$QMp, 3)),
+           n_studies = table(df$overlap_methods))  %>%
+    rename(ADR_proportion = pred) %>%
+    select(cat, n_studies, everything())
+  
+```
+```{r overlapping_subgroup_models}
+
+  res_whowho <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (overlap_methods == "WHO & WHO-UMC")
+  )
+
+  res_whonar <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (overlap_methods == "WHO & Naranjo")
+  )
+  
+  res_ed <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (overlap_methods == "Edwards Aronson & Naranjo")
+  )
+      
+  res_nd <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (overlap_methods == "Not documented & Naranjo")
+  )
+
+```
+
+```{r forest_sub_overlapping}
+
+  n_groups <- length(table(df$overlap_methods))
+  n_g_1 <- table(df$overlap_methods)[1]
+  n_g_2 <- table(df$overlap_methods)[2]
+  n_g_3 <- table(df$overlap_methods)[3]
+  n_g_4 <- table(df$overlap_methods)[4]
+  total_n <- sum(table(df$overlap_methods))
+  
+  upper <- total_n + 3 + (2 * n_groups)
+  
+  g_1_start <- 1 + 1 # one for poly
+  g_1_end <- g_1_start + n_g_1 - 1
+  
+  g_2_start <- g_1_end + 1 + 1 + 1 # g2 label, space, poly
+  g_2_end <- g_2_start + n_g_2 - 1
+  
+  g_3_start <- g_2_end + 1 + 1 + 1 # g2 label, space, poly
+  g_3_end <- g_3_start + n_g_3 - 1
+  
+  g_4_start <- g_3_end + 1 + 1 + 1 # g2 label, space, poly
+  g_4_end <- g_4_start + n_g_4 - 1
+  
+
+# Overall fit from the model with no missing moderators
+  txt1 <- paste0(
+      "QE(LRT) = ", round(model2$QE.LRT, 2),
+      ", df = ", (model2$k - model2$p),
+      ifelse(
+        model2$QEp.LRT < 0.001, ", p < 0.001", round(model2$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(model2$I2, digits = 1),
+    "%; tau^2 = ", round(model2$tau2, digits = 2)
+  )
+  
+  par(mar=c(4,4,1,2))
+  
+  forest(
+    model2,
+    addcred = TRUE, 
+    addfit = TRUE,
+    xlab = "Proportion",
+    mlab = "",
+    header = "Author and Year",
+    slab = df$study,
+    transf = transf.ilogit,
+    order = order(df$overlap_methods),
+    refline = predict(model2, transf = transf.ilogit)$pred, 
+    ylim = c(-3, upper), 
+    # 0 is the bottom. -3 gives space below that. + 3 to align top labels. 
+    # + 2 more for each group (poly below and label above). 
+    xlim = c(-1, 1.2), # Tweak to look right
+    ilab = cbind(df$total_n_65, df$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75, 
+    rows = c(g_1_start:g_1_end, g_2_start:g_2_end, g_3_start:g_3_end, 
+             g_4_start:g_4_end)
+
+  )
+  
+# text(x = -0.5, y = -3:upper, cex = 0.75, as.character(-3:upper))
+
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+  
+  text(c(-0.3, -0.1), upper - 1, c("Total n", "ADR n"), 
+       cex = 0.75) # One less than the total
+  
+  text(-1, c(g_4_end + 1, g_3_end + 1,
+             g_2_end + 1, g_1_end + 1), 
+       pos = 4, font = 2, cex = 0.75,
+       rev(levels(df$overlap_methods)))
+  
+  addpoly(res_whowho, row = g_1_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_whonar, row = g_2_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_ed,     row = g_3_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "") 
+  addpoly(res_nd,     row = g_4_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+ 
+```
+
+
+### ADR identified by
+
+*6.	New subgroup analysis -  grouped by ADR identification method - forest plot for each grouping and query any statistical significance between each group and overall pooled proportion (analysis #1).*
+
+```{r}
+
+  data_id <- filter(data, !is.na(adr_id_method)) %>%
+  arrange(adr_id_method)
+# Remove those with missing mod values
+
+  res_adrid <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = data_id, 
+    mods = ~ adr_id_method
+    )
+  
+  df <- data_id
+  model <- res_adrid
+  model2 <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df
+    ) # No moderator, but in the dataset with no missing moderators
+
+  predict(model, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(df$adr_id_method), 
+           moderator_p = c(rep(NA, length(levels(df$adr_id_method)) -1), 
+                           round(model$QMp, 3)),
+           n_studies = table(df$adr_id_method))  %>%
+    rename(ADR_proportion = pred) %>%
+    select(cat, n_studies, everything())
+  
+```
+
+```{r setting_id_models}
+
+  res_pharm <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (adr_id_method == "Pharmacist")
+  )
+
+  res_phys <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (adr_id_method == "Physican")
+  )
+  
+  res_nd <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (adr_id_method == "Not documented")
+  )
+      
+  res_md <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (adr_id_method == "Multi-disciplinary")
+  )
+
+```
+
+```{r forest_sub_id_method}
+
+  n_groups <- length(table(df$adr_id_method))
+  n_g_1 <- table(df$adr_id_method)[1]
+  n_g_2 <- table(df$adr_id_method)[2]
+  n_g_3 <- table(df$adr_id_method)[3]
+  n_g_4 <- table(df$adr_id_method)[4]
+  total_n <- sum(table(df$adr_id_method))
+  
+  upper <- total_n + 3 + (2 * n_groups)
+  
+  g_1_start <- 1 + 1 # one for poly
+  g_1_end <- g_1_start + n_g_1 - 1
+  
+  g_2_start <- g_1_end + 1 + 1 + 1 # g2 label, space, poly
+  g_2_end <- g_2_start + n_g_2 - 1
+  
+  g_3_start <- g_2_end + 1 + 1 + 1 # g2 label, space, poly
+  g_3_end <- g_3_start + n_g_3 - 1
+  
+  g_4_start <- g_3_end + 1 + 1 + 1 # g2 label, space, poly
+  g_4_end <- g_4_start + n_g_4 - 1
+  
+
+# Overall fit from the model with no missing moderators
+  txt1 <- paste0(
+      "QE(LRT) = ", round(model2$QE.LRT, 2),
+      ", df = ", (model2$k - model2$p),
+      ifelse(
+        model2$QEp.LRT < 0.001, ", p < 0.001", round(model2$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(model2$I2, digits = 1),
+    "%; tau^2 = ", round(model2$tau2, digits = 2)
+  )
+  
+  par(mar=c(4,4,1,2))
+  
+  forest(
+    model2,
+    addcred = TRUE, 
+    addfit = TRUE,
+    xlab = "Proportion",
+    mlab = "",
+    header = "Author and Year",
+    slab = df$study,
+    transf = transf.ilogit,
+    order = order(df$adr_id_method),
+    refline = predict(model2, transf = transf.ilogit)$pred, 
+    ylim = c(-3, upper), 
+    # 0 is the bottom. -3 gives space below that. + 3 to align top labels. 
+    # + 2 more for each group (poly below and label above). 
+    xlim = c(-1, 1.2), # Tweak to look right
+    ilab = cbind(df$total_n_65, df$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75, 
+    rows = c(g_1_start:g_1_end, g_2_start:g_2_end, g_3_start:g_3_end, 
+             g_4_start:g_4_end)
+
+  )
+  
+# text(x = -0.5, y = -3:upper, cex = 0.75, as.character(-3:upper))
+
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+  
+  text(c(-0.3, -0.1), upper - 1, c("Total n", "ADR n"), 
+       cex = 0.75) # One less than the total
+  
+  text(-1, c(g_4_end + 1, g_3_end + 1,
+             g_2_end + 1, g_1_end + 1), 
+       pos = 4, font = 2, cex = 0.75,
+       rev(levels(df$adr_id_method)))
+  
+  addpoly(res_pharm, row = g_1_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_phys,  row = g_2_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_nd,    row = g_3_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "") 
+  addpoly(res_md,    row = g_4_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+ 
+```
+
+
+### Quality (RoB)
+
+*9.	New subgroup analysis - based on reviewer comment querying impact on risk of bias - forest plot for high quality studies and query any statistical significance between each group and overall pooled proportion (analysis #1).*
+
+```{r}
+
+  data_qual <- filter(data, !is.na(quality)) %>%
+  arrange(quality)
+# Remove those with missing mod values
+
+  res_quality <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = arrange(data_qual, quality), 
+    mods = ~ quality
+    ) # Model with moderator
+  
+  df <- data_qual
+  model <- res_quality
+  model2 <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = arrange(df, quality)
+    ) # No moderator, but in the dataset with no missing moderators
+
+  predict(model, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(df$quality), 
+           moderator_p = c(rep(NA, length(levels(df$quality)) -1), 
+                           round(model$QMp, 3)),
+           n_studies = table(df$quality))  %>%
+    rename(ADR_proportion = pred) %>%
+    select(cat, n_studies, everything())
+  
+```
+
+```{r qual_subgroup_models}
+
+  res_low_rob <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (quality == "Low")
+  )
+
+  res_high_rob <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (quality == "High")
+  )
+
+```
+
+
+
+```{r}
+
+# res_quality
+
+  n_groups <- length(table(df$quality))
+  n_g_1 <- table(df$quality)[1]
+  n_g_2 <- table(df$quality)[2]
+  total_n <- sum(table(df$quality))
+  
+  upper <- total_n + 3 + (2 * n_groups)
+  
+  g_1_start <- 1 + 1 # one for poly
+  g_1_end <- g_1_start + n_g_1 - 1
+  g_2_start <- g_1_end + 1 + 1 + 1 # g2 label, space, poly
+  g_2_end <- g_2_start + n_g_2 - 1
+  
+# Overall fit from the model with no missing moderators
+  txt1 <- paste0(
+      "QE(LRT) = ", round(model2$QE.LRT, 2),
+      ", df = ", (model2$k - model2$p),
+      ifelse(
+        model2$QEp.LRT < 0.001, ", p < 0.001", round(model2$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(model2$I2, digits = 1),
+    "%; tau^2 = ", round(model2$tau2, digits = 2)
+  )
+  
+  forest(
+    model2,
+    addcred = TRUE, 
+    addfit = TRUE,
+    xlab = "Proportion",
+    mlab = "",
+    header = "Author and Year",
+    slab = paste(df$study, df$quality),
+    transf = transf.ilogit,
+    order = order(df$quality),
+    refline = predict(model2, transf = transf.ilogit)$pred, 
+    ylim = c(-3, upper), 
+    # 0 is the bottom. -3 gives space below that. + 3 to align top labels. 
+    # + 2 more for each group (poly below and label above). 
+    xlim = c(-1, 1.2), # Tweak to look right
+    ilab = cbind(df$total_n_65, df$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75, 
+    rows = c(g_1_start:g_1_end, g_2_start:g_2_end)
+
+  )
+  
+# text(x = -0.5, y = -3:upper, cex = 0.75, as.character(-3:upper))
+
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+  
+  text(c(-0.3, -0.1), upper - 1, c("Total n", "ADR n"), 
+       cex = 0.75) # One less than the total
+  
+  text(-1, c(g_2_end + 1, g_1_end + 1), pos = 4, font = 2, cex = 0.75,
+       rev(levels(df$quality)))
+  
+  addpoly(res_low_rob, row = g_1_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_high_rob, row = g_2_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  
+# View(arrange(data_qual, desc(quality)))
+
+# forest(res_low_rob,     
+#        refline = predict(model2, transf = transf.ilogit)$pred,
+#        transf = transf.ilogit)
+
+
+```
+
+
+### Incident
+
+*10.	New subgroup analysis - based on reviewer comment querying impact of NOS domain "demonstration that outcome of interest was not present at start of study" - forest plots for groupings that did and did not demonstarte this and query any statistical significance between each grouping and overall pooled proportion (analysis #1).* 
+
+```{r}
+
+  data_incident <- filter(data, !is.na(incident)) %>%
+  arrange(incident)
+
+  res_incident <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = arrange(data, incident), 
+    mods = ~ incident
+    ) # Model with moderator
+  
+  df <- data_incident
+  model <- res_incident
+  model2 <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = arrange(df, incident)
+    ) # No moderator, but in the dataset with no missing moderators
+
+  predict(model, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(df$incident), 
+           moderator_p = c(rep(NA, length(levels(df$incident)) -1), 
+                           round(model$QMp, 3)),
+           n_studies = table(df$incident))  %>%
+    rename(ADR_proportion = pred) %>%
+    select(cat, n_studies, everything())
+  
+```
+
+```{r incident_subgroup_models}
+
+  res_not_incident <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (incident == "Not clearly incident")
+  )
+
+
+  res_incident <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (incident == "Clearly incident")
+  )
+
+
+```
+
+
+```{r forest_sub_incident}
+
+  n_groups <- length(table(df$incident))
+  n_g_1 <- table(df$incident)[1]
+  n_g_2 <- table(df$incident)[2]
+  total_n <- sum(table(df$incident))
+  
+  upper <- total_n + 3 + (2 * n_groups)
+  
+  g_1_start <- 1 + 1 # one for poly
+  g_1_end <- g_1_start + n_g_1 - 1
+  g_2_start <- g_1_end + 1 + 1 + 1 # g2 label, space, poly
+  g_2_end <- g_2_start + n_g_2 - 1
+  
+# Overall fit from the model with no missing moderators
+  txt1 <- paste0(
+      "QE(LRT) = ", round(model2$QE.LRT, 2),
+      ", df = ", (model2$k - model2$p),
+      ifelse(
+        model2$QEp.LRT < 0.001, ", p < 0.001", round(model2$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(model2$I2, digits = 1),
+    "%; tau^2 = ", round(model2$tau2, digits = 2)
+  )
+  
+  forest(
+    model2,
+    addcred = TRUE, 
+    addfit = TRUE,
+    xlab = "Proportion",
+    mlab = "",
+    header = "Author and Year",
+    slab = paste(df$study),
+    transf = transf.ilogit,
+    order = order(df$incident),
+    refline = predict(model2, transf = transf.ilogit)$pred, 
+    ylim = c(-3, upper), 
+    # 0 is the bottom. -3 gives space below that. + 3 to align top labels. 
+    # + 2 more for each group (poly below and label above). 
+    xlim = c(-1, 1.2), # Tweak to look right
+    ilab = cbind(df$total_n_65, df$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75, 
+    rows = c(g_1_start:g_1_end, g_2_start:g_2_end)
+
+  )
+  
+# text(x = -0.5, y = -3:upper, cex = 0.75, as.character(-3:upper))
+
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+  
+  text(c(-0.3, -0.1), upper - 1, c("Total n", "ADR n"), 
+       cex = 0.75) # One less than the total
+  
+  text(-1, c(g_2_end + 1, g_1_end + 1), pos = 4, font = 2, cex = 0.75,
+       rev(levels(df$incident)))
+  
+  addpoly(res_not_incident, row = g_1_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_incident, row = g_2_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  
+# View(arrange(df, incident))
+
+# forest(res_not_incident,
+#        refline = predict(model2, transf = transf.ilogit)$pred,
+#        transf = transf.ilogit)
+
+
+```
+
+### Setting
+
+*11.	New subgroup analysis - based on reviewer comment querying impact of ward setting on ADR proportions - forest plots for each ward grouping and query any statistical significance between each grouping and overall pooled proportion (analysis #1).*
+
+*5.	Questioning regarding impact  of hospital setting on ADR proportions*
+
+
+```{r}
+
+  data_setting <- filter(data, !is.na(setting)) %>%
+  arrange(setting)
+
+  res_setting <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = data_setting, 
+    mods = ~ setting
+    )
+  
+  df <- data_setting
+  model <- res_setting
+  model2 <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = data_setting
+    ) # No moderator, but in the dataset with no missing moderators
+
+  predict(model, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(df$setting), 
+           moderator_p = c(rep(NA, length(levels(df$setting)) -1), 
+                           round(res_setting$QMp, 3)),
+           n_studies = table(df$setting))  %>%
+    rename(ADR_proportion = pred) %>%
+    select(cat, n_studies, everything())
+
+```
+
+```{r setting_subgroup_models}
+
+  res_cardiology <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (setting == "Cardiology")
+  )
+
+  res_dermatology <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (setting == "Dermatology")
+  )
+  
+  res_geriatric <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (setting == "Geriatric")
+  )
+      
+  res_gim <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (setting == "GIM")
+  )
+        
+# res_icu <- rma.glmm(
+#   measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+#   data = df,
+#   subset = (setting == "ICU")
+# )
+          
+  res_mixed <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (setting == "Mixed")
+  )
+  
+  res_nd <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, 
+    data = df,
+    subset = (setting == "Not described")
+  )
+    
+
+
+```
+
+
+```{r forest_sub_setting}
+
+  n_groups <- length(table(df$setting))
+  n_g_1 <- table(df$setting)[1]
+  n_g_2 <- table(df$setting)[2]
+  n_g_3 <- table(df$setting)[3]
+  n_g_4 <- table(df$setting)[4]
+  n_g_5 <- table(df$setting)[5]
+  n_g_6 <- table(df$setting)[6]
+  n_g_7 <- table(df$setting)[7]
+  total_n <- sum(table(df$setting))
+  
+  upper <- total_n + 3 + (2 * n_groups)
+  
+  g_1_start <- 1 + 1 # one for poly
+  g_1_end <- g_1_start + n_g_1 - 1
+  
+  g_2_start <- g_1_end + 1 + 1 + 1 # g2 label, space, poly
+  g_2_end <- g_2_start + n_g_2 - 1
+  
+  g_3_start <- g_2_end + 1 + 1 + 1 # g2 label, space, poly
+  g_3_end <- g_3_start + n_g_3 - 1
+  
+  g_4_start <- g_3_end + 1 + 1 + 1 # g2 label, space, poly
+  g_4_end <- g_4_start + n_g_4 - 1
+  
+  g_5_start <- g_4_end + 1 + 1 + 1 # g2 label, space, poly
+  g_5_end <- g_5_start + n_g_5 - 1
+  
+  g_6_start <- g_5_end + 1 + 1 + 1 # g2 label, space, poly
+  g_6_end <- g_6_start + n_g_6 - 1
+  
+  g_7_start <- g_6_end + 1 + 1 + 1 # g2 label, space, poly
+  g_7_end <- g_7_start + n_g_7 - 1
+  
+# Overall fit from the model with no missing moderators
+  txt1 <- paste0(
+      "QE(LRT) = ", round(model2$QE.LRT, 2),
+      ", df = ", (model2$k - model2$p),
+      ifelse(
+        model2$QEp.LRT < 0.001, ", p < 0.001", round(model2$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(model2$I2, digits = 1),
+    "%; tau^2 = ", round(model2$tau2, digits = 2)
+  )
+  
+  par(mar=c(4,4,1,2))
+  
+  forest(
+    model2,
+    addcred = TRUE, 
+    addfit = TRUE,
+    xlab = "Proportion",
+    mlab = "",
+    header = "Author and Year",
+    slab = df$study,
+    transf = transf.ilogit,
+    order = order(df$setting),
+    refline = predict(model2, transf = transf.ilogit)$pred, 
+    ylim = c(-3, upper), 
+    # 0 is the bottom. -3 gives space below that. + 3 to align top labels. 
+    # + 2 more for each group (poly below and label above). 
+    xlim = c(-1, 1.2), # Tweak to look right
+    ilab = cbind(df$total_n_65, df$adr_n_65),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75, 
+    rows = c(g_1_start:g_1_end, g_2_start:g_2_end, g_3_start:g_3_end, 
+             g_4_start:g_4_end, g_5_start:g_5_end, g_6_start:g_6_end, 
+             g_7_start:g_7_end)
+
+  )
+  
+# text(x = -0.5, y = -3:upper, cex = 0.75, as.character(-3:upper))
+
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+  
+  text(c(-0.3, -0.1), upper - 1, c("Total n", "ADR n"), 
+       cex = 0.75) # One less than the total
+  
+  text(-1, c(g_7_end + 1, g_6_end + 1, g_5_end + 1, g_4_end + 1, g_3_end + 1,
+             g_2_end + 1, g_1_end + 1), 
+       pos = 4, font = 2, cex = 0.75,
+       rev(levels(df$setting)))
+  
+  addpoly(res_cardiology,  row = g_1_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_dermatology, row = g_2_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_geriatric,   row = g_3_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "") 
+  addpoly(res_gim,         row = g_4_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  # ICU no model
+  addpoly(res_mixed,       row = g_6_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+  addpoly(res_nd,          row = g_7_start - 1, cex = 0.75, transf = transf.ilogit, mlab = "")
+
+```
+
+### Meta-regression with incident, quality, and setting. 
+
+```{r}
+
+  res_meta_reg <- rma.glmm(
+    measure = "PLO", xi = adr_n_65, ni = total_n_65, data = data, 
+    mods = ~ setting + quality + incident
+    )
+
+  res_meta_reg
+  
+```
+
+# Severity
+
+*4.	"It would be most helpful to see forest plots for severity and preventability using random effects model"*
+
+*8.	New subgroup analysis - pooled proportions for ADR severity based on studies reporting severity *
+
+# Overall model
+
+```{r, effect_size_calculation_sev}
+
+# Get effect sizes and variances for each sample
+  severity <- escalc(measure = "PR", xi = severe_n, ni = adr_n_65, 
+                     data = severity)
+
+# qplot(pct_adr_65, yi, data = data) # ok#
+
+# Get binomial 95% CI for each sample
+  tmp <- t(sapply(split(severity, severity$id),
+                  function(x) binom.test(x$severe_n, x$adr_n_65)$conf.int))
+  severity$ci.lb <- tmp[, 1]
+  severity$ci.ub <- tmp[, 2]
+  
+```
+
+
+Binomial-normal random effects model (coefficients on the log-odds scale). 
+```{r}
+
+# RE model for logit xformed proportion
+  res_glmm_sev <- rma.glmm(
+    measure = "PLO", xi = severe_n , ni = adr_n_65, data = severity
+    )
+
+  res_glmm_sev
+  
+  predict(res_glmm_sev, transf = transf.ilogit)
+
+
+```
+
+```{r fig_3}
+
+### decrease margins so the full space is used
+  par(mar = c(4, 4, 1, 2))
+
+# pdf("plots/update/overall_forest.pdf")
+
+  txt1 <- paste0(
+      "QE(LRT) = ", round(res_glmm_sev$QE.LRT, 2),
+      ", df = ", (res_glmm_sev$k - res_glmm_sev$p),
+      ifelse(
+        res_glmm_sev$QEp.LRT < 0.001, ", p < 0.001", 
+        round(res_glmm_sev$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(res_glmm_sev$I2, digits = 1),
+    "%; tau^2 = ", round(res_glmm_sev$tau2, digits = 2)
+  )
+
+  forest(
+    res_glmm_sev,
+    addcred = TRUE,
+    xlim = c(-1, 1.2),
+    #at = log(c(0.05, 0.25, 1, 4)),
+    transf = transf.ilogit,
+    # atransf = transf.ilogit,
+    ilab = cbind(severity$adr_n_65, severity$severe_n),
+    ilab.xpos = c(-0.3, -0.1),
+    cex = 0.75,
+    ylim = c(-3, 17),
+    xlab = "Proportion",
+    mlab = "",
+    header = "Author and Year",
+    slab = severity$study,
+    refline = predict(res_glmm_sev, transf = transf.ilogit)$pred
+    ) 
+
+  text(c(-0.3, -0.1), 16, c("Total ADR n", "Severe ADR n"), cex = 0.75) 
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+
+```
+
+
+## Moderators
+
+### Age
+
+```{r}
+
+  sev_age <- rma.glmm(
+    measure = "PLO", xi = severe_n , ni = adr_n_65, 
+    data = arrange(severity, all_ages_vs_65_only), 
+    mods = all_ages_vs_65_only
+    )
+
+  sev_age
+    
+  predict(sev_age, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(severity$all_ages_vs_65_only), 
+           moderator_p = c(NA, round(sev_age$QMp, 3)),
+           n_studies = table(severity$all_ages_vs_65_only))  %>%
+    rename(Severity_proportion = pred) %>%
+    select(cat, n_studies, everything())
+  
+```
+
+### Tool
+
+```{r}
+
+  sev_severity_tool <- rma.glmm(
+    measure = "PLO", xi = severe_n , ni = adr_n_65, 
+    data =  arrange(severity, severity_tool), 
+    mods = severity_tool
+    )
+
+  sev_severity_tool
+    
+  predict(sev_severity_tool, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(severity$severity_tool), 
+           moderator_p = c(
+             rep(NA, length(levels(severity$severity_tool)) - 1), 
+             round(sev_severity_tool$QMp, 3)
+             ),
+           n_studies = table(severity$severity_tool))  %>%
+    rename(Severity_proportion = pred) %>%
+    select(cat, n_studies, everything())
+  
+```
+
+# Preventability
+
+*4.	"It would be most helpful to see forest plots for severity and preventability using random effects model"*
+
+*7.	New subgroup analysis - pooled proportions for ADR preventability based on studies reporting preventability*
+
+# Overall model
+
+```{r, effect_size_calculation_prev}
+
+# Get effect sizes and variances for each sample
+  prevent <- escalc(measure = "PR", xi = n_prev_adrs, ni = n_adrs_total, 
+                     data = prevent)
+
+# qplot(pct_adr_65, yi, data = data) # ok#
+
+# Get binomial 95% CI for each sample
+  tmp <- t(sapply(split(prevent, prevent$id),
+                  function(x) binom.test(x$n_prev_adrs, 
+                                         x$n_adrs_total)$conf.int))
+  prevent$ci.lb <- tmp[, 1]
+  prevent$ci.ub <- tmp[, 2]
+  
+```
+
+
+Binomial-normal random effects model (coefficients on the log-odds scale). 
+```{r}
+
+# RE model for logit xformed proportion
+  res_glmm_prev <- rma.glmm(
+    measure = "PLO", xi = n_prev_adrs , ni = n_adrs_total, data = prevent
+    )
+
+  res_glmm_prev
+  
+  predict(res_glmm_prev, transf = transf.ilogit)
+
+
+```
+
+```{r fig_4}
+
+### decrease margins so the full space is used
+  par(mar = c(4, 4, 1, 2))
+
+# pdf("plots/update/overall_forest.pdf")
+
+  txt1 <- paste0(
+      "QE(LRT) = ", round(res_glmm_prev$QE.LRT, 2),
+      ", df = ", (res_glmm_prev$k - res_glmm_prev$p),
+      ifelse(
+        res_glmm_prev$QEp.LRT < 0.001, ", p < 0.001", 
+        round(res_glmm_prev$QEp.LRT, 2)
+      )
+    ) 
+  
+  txt2 <- paste0(
+    "I^2 = ", round(res_glmm_prev$I2, digits = 1),
+    "%; tau^2 = ", round(res_glmm_prev$tau2, digits = 2)
+  )
+
+  forest(
+    res_glmm_prev,
+    addcred = TRUE,
+    xlim = c(-1, 1.5),
+    #at = log(c(0.05, 0.25, 1, 4)),
+    transf = transf.ilogit,
+    # atransf = transf.ilogit,
+    ilab = cbind(prevent$n_adrs_total, prevent$n_prev_adrs),
+    ilab.xpos = c(-0.5, -0.1),
+    cex = 0.75,
+    ylim = c(-3, 7),
+    xlab = "Proportion",
+    mlab = "",
+    header = "Author and Year",
+    slab = prevent$study,
+    refline = predict(res_glmm_prev, transf = transf.ilogit)$pred
+    ) 
+
+  text(c(-0.5, -0.1), 6, c("Total ADR n", "Preventable ADR n"), cex = 0.75) 
+  text(-1, -1, pos = 4, cex = 0.75, "RE Model for All Studies") 
+  text(-1, -2, pos = 4, cex = 0.75, txt1) 
+  text(-1, -3, pos = 4, cex = 0.75, txt2) 
+
+```
+
+
+## Moderators
+
+### Age
+
+```{r}
+
+  prev_age <- rma.glmm(
+    measure = "PLO", xi = n_prev_adrs , ni = n_adrs_total, 
+    data = arrange(prevent, all_ages_vs_65_only),
+    mods = all_ages_vs_65_only
+    )
+
+  prev_age
+    
+  predict(prev_age, transf = transf.ilogit) %>%
+    as_data_frame() %>%
+    round(2) %>%
+    distinct() %>%
+    mutate(cat = levels(prevent$all_ages_vs_65_only), 
+           moderator_p = c(NA, round(prev_age$QMp, 3)),
+           n_studies = table(prevent$all_ages_vs_65_only))  %>%
+    rename(Preventability_proportion = pred) %>%
+    select(cat, n_studies, everything())
+  
+```
+
+
+```{r if_html, eval = knitr::opts_knit$get("rmarkdown.pandoc.to") == "html"}
+
+# use flextable (works for MD files on github too)
+
+```
+
+```{r if_word, eval = !knitr::opts_knit$get("rmarkdown.pandoc.to") == "html"}
+
+# use kable
+
+```
+
+
+# Appendices
+
+## Codebook
+```{r code_book}
+
+  print(summarytools::dfSummary(data), method = "render")
+
+```
+
+## System info
+```{r sysinfo}
+
+  DescTools::SysInfo()
+
+```
+
